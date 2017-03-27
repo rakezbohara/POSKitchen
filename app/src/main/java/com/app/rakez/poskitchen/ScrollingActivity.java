@@ -29,8 +29,8 @@ public class ScrollingActivity extends AppCompatActivity {
     String uName=null,uPassword=null;
     int check = 0;
     TextView resultTv;
-
     String ipAddress;
+    String id,name,phoneno,address,username,role_id;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,7 +58,10 @@ public class ScrollingActivity extends AppCompatActivity {
                         SharedPreferences pref = getApplicationContext().getSharedPreferences("MyPrefKitchen", 0); // 0 - for private mode
                         SharedPreferences.Editor editor = pref.edit();
                         editor.putString("login","true");
-                        //editor.putString("login_id",ui.getId());
+                        editor.putString("login_id",id);
+
+                        editor.putString("role_id",role_id);
+                        Log.d("Aaaa","Role here"+role_id);
                         editor.commit();
                         Snackbar.make(view, "Login Success", Snackbar.LENGTH_LONG)
                                 .setAction("Action", null).show();
@@ -91,9 +94,12 @@ public class ScrollingActivity extends AppCompatActivity {
             return true;
         }
         if (id == R.id.setIP) {
+            Bundle source = new Bundle();
             Intent in = new Intent(getApplicationContext(),setIP.class);
+            source.putString("requestFrom","login");
+            in.putExtras(source);
             startActivity(in);
-            return true;
+            finish();
         }
 
         return super.onOptionsItemSelected(item);
@@ -115,15 +121,14 @@ public class ScrollingActivity extends AppCompatActivity {
                 for(int i = 0;i<response.length();i++){
                     try {
                         JSONObject user = (JSONObject) response.get(i);
-                        String id = user.getString("id");
-                        String name = user.getString("name");
-                        String password = user.getString("password");
-                        String phoneno = user.getString("phoneno");
-                        String address = user.getString("address");
-                        String username = user.getString("username");
-                        String role_id = user.getString("role_id");
-
-                        //ui = new UserInfo(address,id,name,phoneno,role_id,username);
+                        id = user.getString("id");
+                        name = user.getString("name");
+                        //String password = user.getString("password");
+                        phoneno = user.getString("phoneno");
+                        address = user.getString("address");
+                        username = user.getString("username");
+                        role_id = user.getString("role_id");
+                        Log.d("Aaaa",role_id+id+name);
 
 
                     } catch (JSONException e) {

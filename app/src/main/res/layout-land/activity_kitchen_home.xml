@@ -3,6 +3,7 @@
     android:orientation="horizontal" android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:weightSum="2"
+    android:id="@+id/root"
     android:background="?android:attr/activatedBackgroundIndicator">
 
     <android.support.v4.widget.SwipeRefreshLayout
