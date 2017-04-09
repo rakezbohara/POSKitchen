@@ -26,6 +26,8 @@
             android:name=".KitchenHome"
             android:screenOrientation="landscape" />
         <activity android:name=".setIP"></activity>
+
+        <service android:name=".BroadcastService"/>
     </application>
 
 </manifest>

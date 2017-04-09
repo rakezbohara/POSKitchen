@@ -1,8 +1,10 @@
 package com.app.rakez.poskitchen;
 
 import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.support.design.widget.Snackbar;
 import android.support.v4.widget.SwipeRefreshLayout;
@@ -31,7 +33,7 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
-public class KitchenHome extends AppCompatActivity {
+public class KitchenHome extends AppCompatActivity{
 
     private ArrayList<String> orderID = new ArrayList<>();
     private ArrayList<String> qty = new ArrayList<>();
@@ -53,13 +55,18 @@ public class KitchenHome extends AppCompatActivity {
     ArrayAdapter<OrderItem> itemAdapter;
     String tablNo="";
 
+    //var for retaining current postition after datasetChanged is called
+    int currentIndex=0;
+
+    //Intent for broadcast
+    private Intent intentB;
+
     ListView tableList;
     ListView itemList;
     private SwipeRefreshLayout swipeRefreshLayout;
 
     String ipAddress;
     String role="KOT";
-
     Snackbar sb;
 
 
@@ -67,6 +74,7 @@ public class KitchenHome extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_kitchen_home);
+        intentB = new Intent(this, BroadcastService.class);
         SharedPreferences ipPref = getApplicationContext().getSharedPreferences("MyIP", 0);
         ipAddress = ipPref.getString("IPAddress"," ");
         SharedPreferences rolePref = getApplicationContext().getSharedPreferences("MyPrefKitchen", 0);
@@ -80,31 +88,12 @@ public class KitchenHome extends AppCompatActivity {
         tableList = (ListView) findViewById(R.id.tableList);
         itemList = (ListView) findViewById(R.id.itemList);
         swipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipeRefreshLayout);
-        swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
-            @Override
-            public void onRefresh() {
-                orderID.clear();
-                qty.clear();
-                orderNO.clear();
-                tableNO.clear();
-                menuID.clear();
-                categoryID.clear();
-                itemName.clear();
-                nonrepeatTable.clear();
-                makeJsonArrayRequest();
-                indexOfOrder.clear();
-                forListOrderNo.clear();
-                forListOrderItem.clear();
-                nonRepeatforListOrderNo.clear();
-                orderData.clear();
-                itemAdapter.notifyDataSetChanged();
-            }
-        });
         makeJsonArrayRequest();
         itemAdapter = new CustomAdapter();
         tableList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                currentIndex =  adapterView.getCount() - i;
                 tablNo = nonrepeatTable.get(i);
                 view.requestFocusFromTouch();
                 view.setSelected(true);
@@ -160,6 +149,53 @@ public class KitchenHome extends AppCompatActivity {
 
             }
         });
+        swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                orderID.clear();
+                qty.clear();
+                orderNO.clear();
+                tableNO.clear();
+                menuID.clear();
+                categoryID.clear();
+                itemName.clear();
+                nonrepeatTable.clear();
+                makeJsonArrayRequest();
+                indexOfOrder.clear();
+                forListOrderNo.clear();
+                forListOrderItem.clear();
+                nonRepeatforListOrderNo.clear();
+                orderData.clear();
+                itemAdapter.notifyDataSetChanged();
+            }
+        });
+
+    }
+
+
+
+    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            updateUI(intent);
+        }
+    };
+
+    private void updateUI(Intent intent) {
+        this.orderID = intent.getStringArrayListExtra("orderID");
+        this.qty = intent.getStringArrayListExtra("qty");
+        this.orderNO = intent.getStringArrayListExtra("orderNO");
+        this.tableNO = intent.getStringArrayListExtra("tableNO");
+        this.menuID = intent.getStringArrayListExtra("menuID");
+        this.categoryID = intent.getStringArrayListExtra("categoryID");
+        this.itemName = intent.getStringArrayListExtra("itemName");
+
+        prepareData();
+        itemAdapter.notifyDataSetChanged();
+        int newIndex = tableList.getCount() - currentIndex;
+        tableList.setSelection(newIndex);
+
+
 
     }
 
@@ -226,6 +262,7 @@ public class KitchenHome extends AppCompatActivity {
     private void prepareData() {
         List<Integer> toRemove = new ArrayList<>();
         toRemove.clear();
+        nonrepeatTable.clear();
         for(int i=0 ; i<tableNO.size();i++){
             if(!nonrepeatTable.contains("Table No. "+tableNO.get(i))){
                 nonrepeatTable.add("Table No. "+tableNO.get(i));
@@ -251,10 +288,6 @@ public class KitchenHome extends AppCompatActivity {
             int delIndex = toRemove.get(i);
             String sts = readyTableOrder.remove(delIndex);
             readyTableOrder.remove(sts);
-
-
-
-
         }
 
 
@@ -332,11 +365,21 @@ public class KitchenHome extends AppCompatActivity {
             }
             orderId.setText(currentItem.getOrderID());
             orderItem.setText(currentItem.getOrderItem());
-
-
-
             return itemView;
         }
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterReceiver(broadcastReceiver);
+        stopService(intentB);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        startService(intentB);
+        registerReceiver(broadcastReceiver, new IntentFilter(BroadcastService.BROADCAST_ACTION));
+    }
 }
