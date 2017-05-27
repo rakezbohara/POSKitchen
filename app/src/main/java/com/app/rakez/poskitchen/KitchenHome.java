@@ -29,7 +29,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,8 +43,7 @@ public class KitchenHome extends AppCompatActivity{
     private ArrayList<String> itemName = new ArrayList<>();
     private ArrayList<String> nonrepeatTable = new ArrayList<>();
 
-    //private ArrayList<TableItem> tableData = new ArrayList<TableItem>();
-    private ArrayList<OrderItem> orderData = new ArrayList<OrderItem>();
+    private ArrayList<OrderItem> orderData = new ArrayList<>();
     private ArrayList<String> indexOfOrder = new ArrayList<>();
     private ArrayList<String> forListOrderNo = new ArrayList<>();
     private ArrayList<String> nonRepeatforListOrderNo = new ArrayList<>();
@@ -87,6 +85,8 @@ public class KitchenHome extends AppCompatActivity{
         }
         tableList = (ListView) findViewById(R.id.tableList);
         itemList = (ListView) findViewById(R.id.itemList);
+        ad =new ArrayAdapter<>(getApplicationContext(),R.layout.table_item,nonrepeatTable);
+        tableList.setAdapter(ad);
         swipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipeRefreshLayout);
         makeJsonArrayRequest();
         itemAdapter = new CustomAdapter();
@@ -131,7 +131,6 @@ public class KitchenHome extends AppCompatActivity{
                         Log.d("jpd","Search here orderno non repeat "+orderNO.get(position)+" "+nonRepeatforListOrderNo.get(k).substring(10));
                         Log.d("jpd","Search here temp order "+position+tempOrder);
                     }
-                    //forListOrderNo.add("Order No. "+k);
                     forListOrderItem.add(tempOrder);
                 }
                 for(int count = 0; count <forListOrderItem.size();count++){
@@ -171,8 +170,6 @@ public class KitchenHome extends AppCompatActivity{
         });
 
     }
-
-
 
     private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -237,6 +234,75 @@ public class KitchenHome extends AppCompatActivity{
                 }
                 pDialog.hide();
                 pDialog.dismiss();
+                initialReadyTable();
+                swipeRefreshLayout.setRefreshing(false);
+
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                pDialog.hide();
+                pDialog.dismiss();
+                swipeRefreshLayout.setRefreshing(false);
+                View view = findViewById(R.id.root);
+                sb = Snackbar.make(view, "Cannot connect to network", Snackbar.LENGTH_INDEFINITE);
+                sb.setAction("Action", null);
+                sb.show();
+
+            }
+        });
+        AppController.getInstance().addToRequestQueue(req);
+
+
+    }
+
+    private void makeOrderReadyRequest(String tblNo,String ordrNo){
+        JsonArrayRequest req = new JsonArrayRequest(Request.Method.GET, "http://"+ipAddress+"/orderapp/readyTable.php?tblNo="+tblNo+"&ordrNo="+ordrNo, null, new Response.Listener<JSONArray>() {
+            @Override
+            public void onResponse(JSONArray response) {
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                View view = findViewById(R.id.root);
+                sb = Snackbar.make(view, "Cannot connect to network", Snackbar.LENGTH_INDEFINITE);
+                sb.setAction("Action", null);
+                sb.show();
+
+            }
+        });
+        AppController.getInstance().addToRequestQueue(req);
+    }
+
+    private void initialReadyTable(){
+
+        final ProgressDialog pDialog = new ProgressDialog(this);
+        pDialog.setMessage("Loading");
+        pDialog.show();
+
+
+        JsonArrayRequest req = new JsonArrayRequest(Request.Method.GET, "http://"+ipAddress+"/orderapp/initialReadyTableJSON.php", null, new Response.Listener<JSONArray>() {
+            @Override
+            public void onResponse(JSONArray response) {
+
+                Log.d("size of the","Size is response "+response.length());
+                for(int i = 0;i<response.length();i++){
+                    try {
+                        JSONObject table = (JSONObject) response.get(i);
+                        String tableNo = table.getString("tableNo");
+                        String orderNo = table.getString("orderNo");
+                        readyTableOrder.add("Table No. "+tableNo+" "+"Order No. "+orderNo);
+                        Log.d("tiral","Table No. "+tableNo+" "+"Order No. "+orderNo);
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+                pDialog.hide();
+                pDialog.dismiss();
                 prepareData();
                 swipeRefreshLayout.setRefreshing(false);
 
@@ -255,7 +321,6 @@ public class KitchenHome extends AppCompatActivity{
             }
         });
         AppController.getInstance().addToRequestQueue(req);
-
 
     }
 
@@ -283,16 +348,17 @@ public class KitchenHome extends AppCompatActivity{
                 toRemove.add(i);
             }
         }
-        for (int i = 0; i<toRemove.size();i++){
+        int len = toRemove.size();
+        for (int i = len-1; i>=0 ; i--){
             Log.d("Data New","To Remove "+toRemove.get(i));
             int delIndex = toRemove.get(i);
-            String sts = readyTableOrder.remove(delIndex);
-            readyTableOrder.remove(sts);
+            readyTableOrder.remove(delIndex);
+            //String sts = readyTableOrder.remove(delIndex);
+            //readyTableOrder.remove(sts);
         }
 
 
-        ad =new ArrayAdapter<String>(getApplicationContext(),R.layout.table_item,nonrepeatTable);
-        tableList.setAdapter(ad);
+
         ad.notifyDataSetChanged();
         //ad = new CustumTableAdapter();
         //tableList.setAdapter(ad);
@@ -352,9 +418,15 @@ public class KitchenHome extends AppCompatActivity{
                 @Override
                 public void onClick(View view) {
                     String ordrNo = currentItem.getOrderID();
-                    readyTableOrder.add(tablNo+" "+ordrNo);
-                    Log.d("status","This is check "+tablNo +" " +ordrNo);
-                    status.setBackgroundResource(R.drawable.table_busy);
+                    if(!readyTableOrder.contains(tablNo+" "+ordrNo)){
+                        readyTableOrder.add(tablNo+" "+ordrNo);
+                        Log.d("status","This is check "+tablNo +" " +ordrNo);
+                        status.setBackgroundResource(R.drawable.table_busy);
+                        makeOrderReadyRequest(tablNo.substring(10),ordrNo.substring(10));
+                    }
+
+
+
                 }
             });
             String tempStatus = currentItem.getStatus();
